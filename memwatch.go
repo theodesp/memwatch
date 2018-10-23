@@ -28,7 +28,7 @@ var defaultWatchConfig = WatchConfig{
 	WarningLimit:  512 * MegaByte,
 	CriticalLimit: 768 * MegaByte,
 	Cycle:         10,
-	Interval:      1 * time.Second,
+	Interval:      5 * time.Second,
 	ExitCode:      101,
 	ExitTime:      10 * time.Second,
 }
@@ -89,7 +89,7 @@ type MemoryWatcher struct {
 func New(opt *WatchConfig) *MemoryWatcher {
 	mw := MemoryWatcher{
 		count:  0,
-		events: make(chan EventType, 2),
+		events: make(chan EventType, 1),
 	}
 	if opt == nil {
 		mw.cfg = defaultWatchConfig
