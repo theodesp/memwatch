@@ -137,6 +137,9 @@ func (mw *MemoryWatcher) tick() {
 }
 
 func calculateTotalMemory(stats runtime.MemStats) uint64  {
+	// Sys related stats may be released to the OS so the runtime
+	// memory usage would not be close with the one observed via
+	// ps or activity monitor
 	return stats.HeapInuse +
 		stats.StackInuse +
 		stats.MSpanInuse +
