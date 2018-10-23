@@ -1,10 +1,10 @@
 package memwatch
 
 import (
-	"time"
-	"runtime"
 	"os"
+	"runtime"
 	"sync"
+	"time"
 )
 
 // A MemoryUnit represents a memory size in bytes
@@ -100,8 +100,35 @@ func New(opt *WatchConfig) *MemoryWatcher {
 	return &mw
 }
 
+// GetConfig return current configuration
+func (mw *MemoryWatcher) GetConfig() WatchConfig {
+	return mw.cfg
+}
+
+// CalculateTotalMemory returns the total memory usage
+func CalculateTotalMemory(stats runtime.MemStats) MemoryUnit {
+	// Sys related stats may be released to the OS so the runtime
+	// memory usage would not be close with the one observed via
+	// ps or activity monitor
+	return MemoryUnit(stats.HeapInuse +
+		stats.StackInuse +
+		stats.MSpanInuse +
+		stats.MCacheInuse +
+		stats.BuckHashSys)
+}
+
+// ReachCritical returns whether total memory reached critical threshold
+func (mw *MemoryWatcher) ReachCritical(total MemoryUnit) bool {
+	return total > mw.cfg.CriticalLimit
+}
+
+// ReachWarning returns whether total memory reached warning threshold
+func (mw *MemoryWatcher) ReachWarning(total MemoryUnit) bool {
+	return total > mw.cfg.WarningLimit
+}
+
 // Starts the monitoring
-func (mw *MemoryWatcher) Start() (<-chan EventType) {
+func (mw *MemoryWatcher) Start() <-chan EventType {
 	go func() {
 		mw.ticker = time.NewTicker(mw.cfg.Interval)
 		for {
@@ -124,27 +151,16 @@ func (mw *MemoryWatcher) tick() {
 	var rtm runtime.MemStats
 	runtime.ReadMemStats(&rtm)
 
-	total := calculateTotalMemory(rtm)
-	if MemoryUnit(total) > mw.cfg.CriticalLimit {
+	total := CalculateTotalMemory(rtm)
+	if mw.ReachCritical(total) {
 		mw.once.Do(mw.trigger)
-	} else if MemoryUnit(total) < mw.cfg.WarningLimit {
+	} else if mw.ReachWarning(total) {
 		mw.count = 0
 	}
-	mw.count += 1
+	mw.count++
 	if mw.count >= mw.cfg.Cycle {
 		mw.once.Do(mw.trigger)
 	}
-}
-
-func calculateTotalMemory(stats runtime.MemStats) uint64  {
-	// Sys related stats may be released to the OS so the runtime
-	// memory usage would not be close with the one observed via
-	// ps or activity monitor
-	return stats.HeapInuse +
-		stats.StackInuse +
-		stats.MSpanInuse +
-		stats.MCacheInuse +
-		stats.BuckHashSys
 }
 
 // Trigger boom and exit after the ExitTime duration
