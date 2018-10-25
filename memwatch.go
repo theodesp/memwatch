@@ -78,18 +78,20 @@ func mergeWithDefaults(base *WatchConfig) *WatchConfig {
 
 // MemoryWatcher watches the memory consumption for you
 type MemoryWatcher struct {
-	cfg    WatchConfig
-	count  int
-	ticker *time.Ticker
-	events chan EventType
-	once   sync.Once
+	cfg     WatchConfig
+	count   int
+	ticker  *time.Ticker
+	events  chan EventType
+	once    sync.Once
+	stopped chan struct{}
 }
 
 // Creates a new MemoryWatcher
 func New(opt *WatchConfig) *MemoryWatcher {
 	mw := MemoryWatcher{
-		count:  0,
-		events: make(chan EventType, 1),
+		count:   0,
+		events:  make(chan EventType, 1),
+		stopped: make(chan struct{}),
 	}
 	if opt == nil {
 		mw.cfg = defaultWatchConfig
@@ -135,15 +137,19 @@ func (mw *MemoryWatcher) Start() <-chan EventType {
 			select {
 			case <-mw.ticker.C:
 				mw.tick()
+			case <-mw.stopped:
+				return
 			}
 		}
 	}()
 	return mw.events
 }
 
-func (mw *MemoryWatcher) stop() {
+// Stop will stop the monitoring, but it can be restarted by calling Start again
+func (mw *MemoryWatcher) Stop() {
 	mw.count = 0
 	mw.ticker.Stop()
+	mw.stopped <- struct{}{}
 }
 
 // Call in every circle, check the memory usage
@@ -167,7 +173,7 @@ func (mw *MemoryWatcher) tick() {
 func (mw *MemoryWatcher) trigger() {
 	mw.boom()
 	mw.count = 0
-	mw.stop()
+	mw.Stop()
 
 	<-time.After(mw.cfg.ExitTime)
 	os.Exit(mw.cfg.ExitCode)
