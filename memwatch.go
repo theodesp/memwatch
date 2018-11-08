@@ -83,6 +83,7 @@ type MemoryWatcher struct {
 	ticker *time.Ticker
 	events chan EventType
 	once   sync.Once
+	stopped chan struct{}
 }
 
 // Creates a new MemoryWatcher
@@ -90,6 +91,7 @@ func New(opt *WatchConfig) *MemoryWatcher {
 	mw := MemoryWatcher{
 		count:  0,
 		events: make(chan EventType, 1),
+		stopped: make(chan struct{}),
 	}
 	if opt == nil {
 		mw.cfg = defaultWatchConfig
@@ -135,13 +137,16 @@ func (mw *MemoryWatcher) Start() <-chan EventType {
 			select {
 			case <-mw.ticker.C:
 				mw.tick()
+			case <-mw.stopped:
+				return
 			}
 		}
 	}()
 	return mw.events
 }
 
-func (mw *MemoryWatcher) stop() {
+// Stops the monitoring without recycling the watcher.
+func (mw *MemoryWatcher) Stop() {
 	mw.count = 0
 	mw.ticker.Stop()
 }
@@ -167,7 +172,8 @@ func (mw *MemoryWatcher) tick() {
 func (mw *MemoryWatcher) trigger() {
 	mw.boom()
 	mw.count = 0
-	mw.stop()
+	mw.Stop()
+	mw.stopped <- struct{}{}
 
 	<-time.After(mw.cfg.ExitTime)
 	os.Exit(mw.cfg.ExitCode)

@@ -63,6 +63,10 @@ func main()  {
 
 ```
 
+## API
+* **Start()**: Starts the monitor
+* **Stop()**: Stops the monitor
+
 The code supports building under Go >= 1.8.
 
 ## Contributors

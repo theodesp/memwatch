@@ -18,6 +18,11 @@ func main()  {
 	})
 
 	events := watch.Start()
+	time.Sleep(2*time.Second)
+
+	watch.Stop()
+	time.Sleep(6*time.Second)
+	events = watch.Start()
 
 	// Watch for memory overload
 	boom := <-events
