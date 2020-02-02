@@ -78,19 +78,19 @@ func mergeWithDefaults(base *WatchConfig) *WatchConfig {
 
 // MemoryWatcher watches the memory consumption for you
 type MemoryWatcher struct {
-	cfg    WatchConfig
-	count  int
-	ticker *time.Ticker
-	events chan EventType
-	once   sync.Once
+	cfg     WatchConfig
+	count   int
+	ticker  *time.Ticker
+	events  chan EventType
+	once    sync.Once
 	stopped chan struct{}
 }
 
 // Creates a new MemoryWatcher
 func New(opt *WatchConfig) *MemoryWatcher {
 	mw := MemoryWatcher{
-		count:  0,
-		events: make(chan EventType, 1),
+		count:   0,
+		events:  make(chan EventType, 1),
 		stopped: make(chan struct{}),
 	}
 	if opt == nil {
@@ -160,11 +160,12 @@ func (mw *MemoryWatcher) tick() {
 	if mw.ReachCritical(total) {
 		mw.once.Do(mw.trigger)
 	} else if mw.ReachWarning(total) {
+		mw.count++
+		if mw.count >= mw.cfg.Cycle {
+			mw.once.Do(mw.trigger)
+		}
+	} else {
 		mw.count = 0
-	}
-	mw.count++
-	if mw.count >= mw.cfg.Cycle {
-		mw.once.Do(mw.trigger)
 	}
 }
 
